@@ -7,7 +7,7 @@ import sys
 from typing import Dict, List, Tuple
 
 # 导入改进的PointTransformerV3
-from PCT.networks.cls.pct_v3 import PointTransformerV3
+from PCT.networks.cls.pct import Point_Transformer
 
 class HumanPriorModule(nn.Module):
     """人体先验知识模块，用于约束骨骼预测结果"""
@@ -114,13 +114,8 @@ class MultiTaskSkeletonModel(nn.Module):
     def __init__(self, feat_dim: int = 256):
         super().__init__()
         # 共享特征提取器
-        self.shared_encoder = PointTransformerV3(
-            in_channels=3,
-            embed_channels=64,
-            depth=6,
-            num_heads=8,
-            window_size=8,
-            local_aggregation=True
+        self.shared_encoder = Point_Transformer(
+            output_channels=feat_dim  # 修改参数以匹配Point_Transformer的接口
         )
         
         # 特征增强层
