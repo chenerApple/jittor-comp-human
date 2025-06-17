@@ -11,7 +11,7 @@ from jittor import optim
 from dataset.dataset import get_dataloader, transform
 from dataset.sampler import SamplerMix
 from dataset.exporter import Exporter
-from models.skeleton import create_model
+from models.skeleton import create_model, SkeletonLoss
 
 from models.metrics import J2J
 
@@ -63,7 +63,7 @@ def train(args):
         raise ValueError(f"Unknown optimizer: {args.optimizer}")
     
     # Create loss function
-    criterion = nn.MSELoss()
+    criterion = SkeletonLoss()
     
     # Create dataloaders
     train_loader = get_dataloader(
@@ -105,7 +105,8 @@ def train(args):
 
             outputs = model(vertices)
             joints = joints.reshape(outputs.shape[0], -1)
-            loss = criterion(outputs, joints)
+            loss_dict = criterion(outputs, joints)
+            loss = loss_dict['total_loss']
             
             # Backward pass and optimize
             optimizer.zero_grad()
@@ -118,7 +119,10 @@ def train(args):
             # Print progress
             if (batch_idx + 1) % args.print_freq == 0 or (batch_idx + 1) == len(train_loader):
                 log_message(f"Epoch [{epoch+1}/{args.epochs}] Batch [{batch_idx+1}/{len(train_loader)}] "
-                           f"Loss: {loss.item():.4f}")
+                           f"Total Loss: {loss.item():.4f} "
+                           f"Joint Loss: {loss_dict['joint_loss'].item():.4f} "
+                           f"Bone Length Loss: {loss_dict['bone_length_loss'].item():.4f} "
+                           f"Symmetry Loss: {loss_dict['symmetry_loss'].item():.4f}")
         
         # Calculate epoch statistics
         train_loss /= len(train_loader)
@@ -134,6 +138,9 @@ def train(args):
             model.eval()
             val_loss = 0.0
             J2J_loss = 0.0
+            val_joint_loss = 0.0
+            val_bone_length_loss = 0.0
+            val_symmetry_loss = 0.0
             
             show_id = np.random.randint(0, len(val_loader))
             for batch_idx, data in enumerate(val_loader):
@@ -147,7 +154,13 @@ def train(args):
                 
                 # Forward pass
                 outputs = model(vertices)
-                loss = criterion(outputs, joints)
+                loss_dict = criterion(outputs, joints)
+                loss = loss_dict['total_loss']
+                
+                # 累积详细损失
+                val_joint_loss += loss_dict['joint_loss'].item()
+                val_bone_length_loss += loss_dict['bone_length_loss'].item()
+                val_symmetry_loss += loss_dict['symmetry_loss'].item()
                 
                 # export render results
                 if batch_idx == show_id:
@@ -165,8 +178,14 @@ def train(args):
             # Calculate validation statistics
             val_loss /= len(val_loader)
             J2J_loss /= len(val_loader)
+            val_joint_loss /= len(val_loader)
+            val_bone_length_loss /= len(val_loader)
+            val_symmetry_loss /= len(val_loader)
             
             log_message(f"Validation Loss: {val_loss:.4f} J2J Loss: {J2J_loss:.4f}")
+            log_message(f"Validation Details - Joint: {val_joint_loss:.4f} "
+                       f"Bone Length: {val_bone_length_loss:.4f} "
+                       f"Symmetry: {val_symmetry_loss:.4f}")
             
             # Save best model
             if J2J_loss < best_loss:
