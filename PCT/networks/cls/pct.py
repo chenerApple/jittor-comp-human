@@ -166,7 +166,7 @@ class Point_Transformer_Last(nn.Module):
         batch_size, _, N = x.size()
         # add position embedding
         xyz = xyz.permute(0, 2, 1)
-        xyz = self.pos_xyz(xyz)
+        xyz = self.conv_pos(xyz)
         # end
         x = self.relu(self.bn1(self.conv1(x))) # B, D, N
 
