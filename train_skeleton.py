@@ -103,7 +103,8 @@ def train(args):
             
             vertices = vertices.permute(0, 2, 1)  # [B, 3, N]
 
-            outputs = model(vertices)
+            # 训练时不应用对称性约束，让模型学习真实的对称性
+            outputs = model(vertices, apply_symmetry_constraint=False)
             joints = joints.reshape(outputs.shape[0], -1)
             loss_dict = criterion(outputs, joints)
             loss = loss_dict['total_loss']
@@ -153,7 +154,7 @@ def train(args):
                     vertices = vertices.permute(0, 2, 1)  # [B, 3, N]
                 
                 # Forward pass
-                outputs = model(vertices)
+                outputs = model(vertices, apply_symmetry_constraint=False)
                 loss_dict = criterion(outputs, joints)
                 loss = loss_dict['total_loss']
                 
